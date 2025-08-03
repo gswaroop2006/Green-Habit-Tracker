@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Green Habit Tracker App - Gamified</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* Fallback color */
+        }
+        #background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+        }
+        .bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            transition: opacity 1.5s ease-in-out;
+            opacity: 0;
+        }
+        #bg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7); /* Light overlay for readability */
+            z-index: -9;
+        }
+        .stat-card, .habit-category {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover, .habit-category:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.07);
+        }
+        #loading-spinner {
+            border-top-color: #10B981;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .achievement-badge {
+            transition: all 0.3s ease;
+            filter: grayscale(100%);
+            opacity: 0.6;
+        }
+        .achievement-badge.unlocked {
+            filter: grayscale(0%);
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        .toast {
+            animation: slide-in 0.5s forwards, slide-out 0.5s 4s forwards;
+        }
+        @keyframes slide-in {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slide-out {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(100%); opacity: 0; }
+        }
+        .habit-options {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .horizontal-scroll-container {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            scrollbar-width: thin;
+            scrollbar-color: #a5b4fc #e0e7ff;
+        }
+        .horizontal-scroll-container::-webkit-scrollbar { height: 8px; }
+        .horizontal-scroll-container::-webkit-scrollbar-track { background: #e0e7ff; border-radius: 10px; }
+        .horizontal-scroll-container::-webkit-scrollbar-thumb { background-color: #a5b4fc; border-radius: 10px; }
+        .habit-card {
+            flex: 0 0 auto;
+            width: 160px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Dynamic Background -->
+    <div id="background-container">
+        <div id="bg-overlay"></div>
+        <div id="bg-img-0" class="bg-image"></div>
+        <div id="bg-img-1" class="bg-image"></div>
+        <div id="bg-img-2" class="bg-image"></div>
+        <div id="bg-img-3" class="bg-image"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-30">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-center items-center relative">
+            <h1 class="text-3xl font-bold text-green-800">🌿 GreenHabit Tracker</h1>
+            <div id="user-info" class="text-xs text-gray-500 text-right hidden absolute right-4">
+                <p>User ID:</p>
+                <p id="user-id-display" class="font-mono"></p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        
+        <div id="loading-indicator" class="flex justify-center items-center py-16">
+            <div id="loading-spinner" class="w-12 h-12 border-4 border-gray-200 rounded-full"></div>
+            <p class="ml-4 text-lg text-gray-600">Loading your green journey...</p>
+        </div>
+
+        <div id="app-content" class="hidden">
+            <!-- Stats Section -->
+            <section class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="stat-card bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg text-center">
+                    <div class="mx-auto bg-green-100 h-12 w-12 rounded-full flex items-center justify-center mb-3">
+                        <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-500">Total Carbon Saved</h3>
+                    <p id="total-carbon-saved" class="text-4xl font-extrabold text-green-600">0.0 kg</p>
+                </div>
+                 <div class="stat-card bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg text-center">
+                    <div class="mx-auto bg-blue-100 h-12 w-12 rounded-full flex items-center justify-center mb-3">
+                        <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-500">Today's Impact</h3>
+                    <p id="today-carbon-saved" class="text-4xl font-extrabold text-blue-600">0.0 kg</p>
+                </div>
+                <div class="stat-card bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg text-center">
+                    <div class="mx-auto bg-orange-100 h-12 w-12 rounded-full flex items-center justify-center mb-3">
+                         <svg class="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.657 7.343A8 8 0 0117.657 18.657z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.343 17.657a8 8 0 0110.607-10.607L12 12l-2.657 5.657z" /></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-500">Daily Streak</h3>
+                    <p id="daily-streak" class="text-4xl font-extrabold text-orange-500">🔥 0</p>
+                </div>
+            </section>
+
+            <!-- Daily Target Section -->
+            <section class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg mb-8">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-xl font-bold text-gray-900">Daily Goal</h2>
+                    <span id="daily-progress-text" class="font-bold text-indigo-600">0%</span>
+                </div>
+                <p class="text-gray-600 mb-3">Your target is to save 2.0 kg of CO₂ today. Keep it up!</p>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div id="daily-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </section>
+
+            <!-- Achievements Section -->
+            <section class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Achievements</h2>
+                <div id="achievements-list" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 text-center">
+                    <!-- Achievements will be injected here -->
+                </div>
+            </section>
+
+            <!-- Habit Logging Section -->
+            <section class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg flex flex-col justify-center items-center">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Log a New Habit</h2>
+                    <button id="open-habit-modal-btn" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold py-3 px-6 rounded-lg hover:from-green-600 hover:to-emerald-700 transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5">Choose a Habit</button>
+                </div>
+        
+                <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Today's Green Habits</h2>
+                    <div id="habit-list-container" class="horizontal-scroll-container">
+                        <p id="no-habits-message" class="text-gray-500 w-full text-center">Log a habit to start your streak!</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Habit Modal -->
+    <div id="habit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h2 class="text-2xl font-bold">Select a Habit to Log</h2>
+                <button id="close-habit-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+            </div>
+            <div id="habit-modal-content" class="p-6 space-y-4 overflow-y-auto">
+                <!-- Habit categories will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, doc, updateDoc, serverTimestamp, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Configuration ---
+        // This app is designed to have its Firebase config injected by the environment.
+        // If you are self-hosting, replace the "DEMO" object with your own Firebase project configuration.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+        apiKey: "AIzaSyDCcuKNdgvoUddGM-W9THOTjrnWgvvSLY4",
+        authDomain: "green-habits-e135a.firebaseapp.com",
+        projectId: "green-habits-e135a",
+        storageBucket: "green-habits-e135a.firebasestorage.app",
+        messagingSenderId: "523795189630",
+        appId: "1:523795189630:web:d0b680844fa7fc3b2eed2f",
+        measurementId: "G-7CEBEY2P4F"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        let db, auth, userId;
+        let habitsCollectionRef, userDataRef;
+
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const appContent = document.getElementById('app-content');
+        const habitListContainer = document.getElementById('habit-list-container');
+        const noHabitsMessage = document.getElementById('no-habits-message');
+        const userInfoDisplay = document.getElementById('user-info');
+        const userIdDisplay = document.getElementById('user-id-display');
+        const totalCarbonSavedEl = document.getElementById('total-carbon-saved');
+        const todayCarbonSavedEl = document.getElementById('today-carbon-saved');
+        const dailyStreakEl = document.getElementById('daily-streak');
+        const achievementsListEl = document.getElementById('achievements-list');
+        const toastContainer = document.getElementById('toast-container');
+        const habitModal = document.getElementById('habit-modal');
+        const openHabitModalBtn = document.getElementById('open-habit-modal-btn');
+        const closeHabitModalBtn = document.getElementById('close-habit-modal-btn');
+        const habitModalContent = document.getElementById('habit-modal-content');
+        const dailyProgressBar = document.getElementById('daily-progress-bar');
+        const dailyProgressText = document.getElementById('daily-progress-text');
+
+        const DAILY_GOAL = 2.0;
+
+        const BACKGROUND_IMAGES = [
+            'https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1?auto=format&fit=crop&w=1920&q=80', // Dry ground with sprout
+            'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1920&q=80', // Green field with tree
+            'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80', // Lush forest floor
+            'https://images.unsplash.com/photo-1542273917363-3b1817469a68?auto=format&fit=crop&w=1920&q=80'  // Sunbeams in forest
+        ];
+
+        const PREDEFINED_HABITS = {
+            "Food": [
+                { id: 'plant_based', text: 'Ate a plant-based meal', carbonSaved: 1.2 },
+                { id: 'no_food_waste', text: 'Avoided food waste', carbonSaved: 0.9 },
+                { id: 'buy_local', text: 'Bought local produce', carbonSaved: 0.25 },
+                { id: 'compost', text: 'Composted food scraps', carbonSaved: 0.15 },
+            ],
+            "Transport": [
+                { id: 'bike_commute', text: 'Commuted by bike/walk (5km)', carbonSaved: 0.8 },
+                { id: 'public_transport', text: 'Used public transport', carbonSaved: 0.6 },
+                { id: 'carpool', text: 'Carpooled with someone', carbonSaved: 0.4 },
+                { id: 'eco_driving', text: 'Practiced eco-driving', carbonSaved: 0.3 },
+            ],
+            "Waste Reduction": [
+                { id: 'recycle', text: 'Recycled plastics/paper', carbonSaved: 0.5 },
+                { id: 'reusable_cup', text: 'Used a reusable coffee cup', carbonSaved: 0.1 },
+                { id: 'reusable_bag', text: 'Used reusable shopping bags', carbonSaved: 0.05 },
+                { id: 'no_single_use', text: 'Refused a single-use plastic', carbonSaved: 0.08 },
+                { id: 'repair', text: 'Repaired an item instead of replacing', carbonSaved: 1.0 },
+            ],
+            "Energy & Water": [
+                { id: 'short_shower', text: 'Took a 5-minute shower', carbonSaved: 0.2 },
+                { id: 'unplug', text: 'Unplugged unused electronics', carbonSaved: 0.15 },
+                { id: 'led_bulb', text: 'Switched to an LED bulb', carbonSaved: 0.4 },
+                { id: 'cold_wash', text: 'Washed clothes in cold water', carbonSaved: 0.3 },
+                { id: 'line_dry', text: 'Line-dried clothes', carbonSaved: 0.25 },
+            ],
+            "Community & Shopping": [
+                { id: 'second_hand', text: 'Bought something second-hand', carbonSaved: 1.5 },
+                { id: 'plant_tree', text: 'Planted a tree/plant', carbonSaved: 2.0 },
+                { id: 'eco_education', text: 'Shared an eco-tip with someone', carbonSaved: 0.0 },
+            ]
+        };
+
+        const ACHIEVEMENTS = [
+            { id: 'starter', name: 'Eco Starter', carbonThreshold: 1, icon: '🌱' },
+            { id: 'warrior', name: 'Eco Warrior', carbonThreshold: 5, icon: '🌳' },
+            { id: 'champion', name: 'Eco Champion', carbonThreshold: 15, icon: '🌍' },
+            { id: 'hero', name: 'Eco Hero', carbonThreshold: 30, icon: '🦸' },
+            { id: 'legend', name: 'Eco Legend', carbonThreshold: 50, icon: '🏆' },
+            { id: 'planet_guardian', name: 'Planet Guardian', carbonThreshold: 100, icon: '🛡️' },
+        ];
+
+        async function main() {
+            if (!firebaseConfig || firebaseConfig.projectId === "DEMO") {
+                handleConfigError();
+                return;
+            }
+
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            preloadBackgrounds();
+            populateHabitModal();
+            renderAchievements();
+
+            onAuthStateChanged(auth, async (user) => {
+                loadingIndicator.classList.add('hidden');
+                appContent.classList.remove('hidden');
+                if (user) {
+                    userId = user.uid;
+                    userIdDisplay.textContent = userId;
+                    userInfoDisplay.classList.remove('hidden');
+                    
+                    habitsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/habits`);
+                    userDataRef = doc(db, `artifacts/${appId}/users/${userId}/userData/profile`);
+                    
+                    await initializeUserData();
+                    setupFirestoreListeners();
+                } else {
+                    userInfoDisplay.classList.add('hidden');
+                }
+            });
+
+            try {
+                if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+                else await signInAnonymously(auth);
+            } catch (error) { console.error("Authentication failed:", error); }
+
+            openHabitModalBtn.addEventListener('click', () => habitModal.classList.remove('hidden'));
+            closeHabitModalBtn.addEventListener('click', () => habitModal.classList.add('hidden'));
+        }
+
+        async function initializeUserData() {
+            const docSnap = await getDoc(userDataRef);
+            if (!docSnap.exists()) {
+                await setDoc(userDataRef, {
+                    totalCarbonSaved: 0,
+                    currentStreak: 0,
+                    lastHabitDate: null,
+                    unlockedAchievements: []
+                });
+            }
+        }
+
+        function setupFirestoreListeners() {
+            if (!userId) return;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const q = query(habitsCollectionRef, where("createdAt", ">=", today));
+            
+            onSnapshot(q, (snapshot) => {
+                const todaysHabits = snapshot.docs.map(doc => doc.data());
+                renderHabits(todaysHabits);
+                calculateTodaysCarbon(todaysHabits);
+            }, console.error);
+
+            onSnapshot(userDataRef, (doc) => updateDashboard(doc.data()), console.error);
+        }
+
+        async function handleAddHabit(habitData) {
+            if (habitData && habitsCollectionRef) {
+                try {
+                    await addDoc(habitsCollectionRef, { ...habitData, completed: true, createdAt: serverTimestamp() });
+                    await updateUserStats(habitData.carbonSaved);
+                    habitModal.classList.add('hidden');
+                } catch (error) { console.error("Error adding habit: ", error); }
+            }
+        }
+
+        async function updateUserStats(carbonSaved) {
+            const userDataSnap = await getDoc(userDataRef);
+            const userData = userDataSnap.data();
+            const newTotalCarbon = (userData.totalCarbonSaved || 0) + carbonSaved;
+            
+            const today = new Date().toDateString();
+            const lastDate = userData.lastHabitDate ? new Date(userData.lastHabitDate.seconds * 1000).toDateString() : null;
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+            let newStreak = userData.currentStreak || 0;
+            if (lastDate !== today) {
+                newStreak = (lastDate === yesterday) ? newStreak + 1 : 1;
+            }
+
+            const oldAchievements = userData.unlockedAchievements || [];
+            const newAchievements = [...oldAchievements];
+            ACHIEVEMENTS.forEach(ach => {
+                if (newTotalCarbon >= ach.carbonThreshold && !newAchievements.includes(ach.id)) {
+                    newAchievements.push(ach.id);
+                    showToast(`Achievement Unlocked: ${ach.name} ${ach.icon}`);
+                }
+            });
+
+            await updateDoc(userDataRef, {
+                totalCarbonSaved: newTotalCarbon,
+                currentStreak: newStreak,
+                lastHabitDate: new Date(),
+                unlockedAchievements: newAchievements
+            });
+        }
+
+        function updateDashboard(userData) {
+            if (!userData) return;
+            totalCarbonSavedEl.textContent = `${(userData.totalCarbonSaved || 0).toFixed(2)} kg`;
+            
+            const today = new Date().toDateString();
+            const lastDate = userData.lastHabitDate ? new Date(userData.lastHabitDate.seconds * 1000).toDateString() : null;
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+            let currentStreak = userData.currentStreak || 0;
+            if(lastDate && lastDate !== today && lastDate !== yesterday) {
+                currentStreak = 0;
+            }
+            dailyStreakEl.innerHTML = `🔥 ${currentStreak}`;
+
+            renderAchievements(userData.unlockedAchievements || []);
+        }
+
+        function calculateTodaysCarbon(habits) {
+            const todaysTotal = habits.reduce((sum, habit) => sum + habit.carbonSaved, 0);
+            todayCarbonSavedEl.textContent = `${todaysTotal.toFixed(2)} kg`;
+            
+            const progress = Math.min((todaysTotal / DAILY_GOAL) * 100, 100);
+            dailyProgressBar.style.width = `${progress}%`;
+            dailyProgressText.textContent = `${Math.round(progress)}%`;
+
+            updateBackgroundImage(todaysTotal);
+        }
+        
+        function preloadBackgrounds() {
+            for (let i = 0; i < BACKGROUND_IMAGES.length; i++) {
+                document.getElementById(`bg-img-${i}`).style.backgroundImage = `url(${BACKGROUND_IMAGES[i]})`;
+            }
+        }
+
+        function updateBackgroundImage(todaysCarbon) {
+            const thresholds = [0, 0.5, 1.25, DAILY_GOAL];
+            let currentLevel = 0;
+
+            for (let i = thresholds.length - 1; i >= 0; i--) {
+                if (todaysCarbon >= thresholds[i]) {
+                    currentLevel = i;
+                    break;
+                }
+            }
+
+            let progress = 0;
+            if (currentLevel < thresholds.length - 1) {
+                const lowerBound = thresholds[currentLevel];
+                const upperBound = thresholds[currentLevel + 1];
+                if (upperBound > lowerBound) {
+                    progress = (todaysCarbon - lowerBound) / (upperBound - lowerBound);
+                }
+            }
+            
+            progress = Math.max(0, Math.min(1, progress));
+
+            for (let i = 0; i < BACKGROUND_IMAGES.length; i++) {
+                const bgImg = document.getElementById(`bg-img-${i}`);
+                if (i === currentLevel) {
+                    bgImg.style.opacity = 1 - progress;
+                } else if (i === currentLevel + 1) {
+                    bgImg.style.opacity = progress;
+                } else {
+                    bgImg.style.opacity = 0;
+                }
+            }
+            
+            if (todaysCarbon >= DAILY_GOAL) {
+                document.getElementById(`bg-img-${thresholds.length - 1}`).style.opacity = 1;
+            } else if (todaysCarbon === 0) {
+                 document.getElementById(`bg-img-0`).style.opacity = 1;
+            }
+        }
+
+        function renderHabits(habits) {
+            habitListContainer.innerHTML = '';
+            if (habits.length === 0) {
+                habitListContainer.appendChild(noHabitsMessage);
+                noHabitsMessage.classList.remove('hidden');
+            } else {
+                noHabitsMessage.classList.add('hidden');
+                habits.forEach(habit => habitListContainer.appendChild(createHabitElement(habit)));
+            }
+        }
+
+        function createHabitElement(habit) {
+            const div = document.createElement('div');
+            div.className = 'habit-card flex flex-col items-center justify-center text-center bg-emerald-50/80 backdrop-blur-sm p-3 rounded-lg border border-emerald-200 mr-3';
+            const textSpan = document.createElement('span');
+            textSpan.textContent = habit.text;
+            textSpan.className = "text-gray-700 text-sm font-medium mb-2";
+            const carbonSpan = document.createElement('span');
+            carbonSpan.textContent = `+${habit.carbonSaved.toFixed(2)} kg`;
+            carbonSpan.className = 'font-semibold text-green-600 bg-green-100 py-1 px-2 rounded-full text-xs';
+            div.appendChild(textSpan);
+            div.appendChild(carbonSpan);
+            return div;
+        }
+
+        function populateHabitModal() {
+            habitModalContent.innerHTML = '';
+            for (const category in PREDEFINED_HABITS) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'habit-category bg-gray-50 border border-gray-200 rounded-lg';
+                
+                const header = document.createElement('button');
+                header.className = 'w-full p-4 text-left font-bold text-lg flex justify-between items-center';
+                header.innerHTML = `<span>${category}</span><span class="transform transition-transform duration-300">▼</span>`;
+                
+                const optionsDiv = document.createElement('div');
+                optionsDiv.className = 'habit-options px-4 pb-2 space-y-2';
+
+                PREDEFINED_HABITS[category].forEach(habit => {
+                    const button = document.createElement('button');
+                    button.className = 'w-full text-left p-3 bg-white rounded-md hover:bg-green-100 border flex justify-between items-center';
+                    button.innerHTML = `<span>${habit.text}</span><span class="font-medium text-green-700">+${habit.carbonSaved.toFixed(2)}kg</span>`;
+                    button.onclick = () => handleAddHabit(habit);
+                    optionsDiv.appendChild(button);
+                });
+                
+                header.onclick = () => {
+                    const icon = header.querySelector('span:last-child');
+                    if (optionsDiv.style.maxHeight) {
+                        optionsDiv.style.maxHeight = null;
+                        icon.style.transform = 'rotate(0deg)';
+                    } else {
+                        document.querySelectorAll('.habit-options').forEach(el => el.style.maxHeight = null);
+                        document.querySelectorAll('.habit-category button span:last-child').forEach(el => el.style.transform = 'rotate(0deg)');
+                        optionsDiv.style.maxHeight = optionsDiv.scrollHeight + "px";
+                        icon.style.transform = 'rotate(180deg)';
+                    }
+                };
+
+                categoryDiv.appendChild(header);
+                categoryDiv.appendChild(optionsDiv);
+                habitModalContent.appendChild(categoryDiv);
+            }
+        }
+
+        function renderAchievements(unlockedIds = []) {
+            achievementsListEl.innerHTML = '';
+            ACHIEVEMENTS.forEach(ach => {
+                const isUnlocked = unlockedIds.includes(ach.id);
+                const badge = document.createElement('div');
+                badge.className = `achievement-badge p-4 rounded-lg ${isUnlocked ? 'unlocked bg-yellow-100/80 backdrop-blur-sm shadow-md' : 'bg-gray-100/80 backdrop-blur-sm'}`;
+                badge.innerHTML = `<div class="text-4xl">${ach.icon}</div><div class="font-bold mt-2 text-sm">${ach.name}</div><div class="text-xs text-gray-500">${ach.carbonThreshold} kg CO₂</div>`;
+                achievementsListEl.appendChild(badge);
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast bg-gray-800 text-white font-bold py-3 px-5 rounded-lg shadow-xl';
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 4500);
+        }
+
+        function handleConfigError() {
+            loadingIndicator.classList.add('hidden');
+            appContent.classList.remove('hidden');
+            const errorMessage = document.createElement('div');
+            errorMessage.className = "bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-lg mb-8";
+            errorMessage.innerHTML = `<p class="font-bold">Configuration Error</p><p>This app requires a valid Firebase configuration to save data online. It is currently in a limited, offline mode.</p>`;
+            appContent.prepend(errorMessage);
+            openHabitModalBtn.disabled = true;
+            openHabitModalBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        main();
+    </script>
+</body>
+</html>
+
